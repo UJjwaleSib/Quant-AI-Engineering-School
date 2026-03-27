@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import bcrypt
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from api.database import get_db, get_settings
@@ -24,7 +25,8 @@ def verify_password(plain: str, hashed: str) -> bool:
 def create_access_token(data: dict) -> str:
     settings = get_settings()
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
-    return jwt.encode({**data, "exp": expire}, settings.secret_key, algorithm=settings.algorithm)
+    payload = {**data, "sub": str(data["sub"]), "exp": expire}
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
 async def get_current_user(
@@ -38,10 +40,11 @@ async def get_current_user(
     try:
         settings = get_settings()
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-        user_id: int = payload.get("sub")
-        if user_id is None:
+        user_id_str: str = payload.get("sub")
+        if user_id_str is None:
             raise credentials_exc
-    except JWTError:
+        user_id = int(user_id_str)
+    except (InvalidTokenError, ValueError):
         raise credentials_exc
 
     result = await db.execute(select(User).where(User.id == user_id))
