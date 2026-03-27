@@ -49,7 +49,7 @@ Provide feedback in this exact JSON format (no markdown, raw JSON only):
 }}"""
 
     msg = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-haiku-4-5-20251001",
         max_tokens=600,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -98,7 +98,7 @@ Generate a research log in this exact JSON format (raw JSON, no markdown):
 }}"""
 
     msg = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-haiku-4-5-20251001",
         max_tokens=500,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -126,7 +126,7 @@ async def chat_with_tutor(
         system += f"\n\nUser's current code:\n```python\n{user_code}\n```"
 
     msg = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-sonnet-4-6",
         max_tokens=1000,
         system=system,
         messages=messages,

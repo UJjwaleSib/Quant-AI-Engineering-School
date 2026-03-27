@@ -1,3 +1,4 @@
+import hashlib
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from api.database import get_db
@@ -9,6 +10,13 @@ from api.content.curriculum import get_lesson
 from api.models import ResearchLog
 
 router = APIRouter(prefix="/exercises", tags=["exercises"])
+
+# In-memory feedback cache: hash(prompt + code) → feedback dict
+_feedback_cache: dict[str, dict] = {}
+
+
+def _cache_key(prompt: str, code: str) -> str:
+    return hashlib.sha256(f"{prompt}\n{code}".encode()).hexdigest()
 
 
 @router.post("/submit", response_model=ExerciseFeedback)
@@ -27,13 +35,18 @@ async def submit_exercise(
 
     exercise = exercises[body.exercise_index]
 
-    # Get LLM feedback
-    feedback_data = await get_exercise_feedback(
-        exercise_prompt=exercise["prompt"],
-        user_code=body.user_code,
-        execution_output=body.execution_output,
-        module_context=f"{body.module_slug}: {lesson['title']}",
-    )
+    # Get LLM feedback (cache hit avoids a round-trip to Claude)
+    cache_key = _cache_key(exercise["prompt"], body.user_code)
+    if cache_key in _feedback_cache:
+        feedback_data = _feedback_cache[cache_key]
+    else:
+        feedback_data = await get_exercise_feedback(
+            exercise_prompt=exercise["prompt"],
+            user_code=body.user_code,
+            execution_output=body.execution_output,
+            module_context=f"{body.module_slug}: {lesson['title']}",
+        )
+        _feedback_cache[cache_key] = feedback_data
 
     # Persist attempt
     attempt = ExerciseAttempt(
