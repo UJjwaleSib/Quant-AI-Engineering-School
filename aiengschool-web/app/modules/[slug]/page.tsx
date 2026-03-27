@@ -24,8 +24,13 @@ export default function ModuleDetailPage() {
         api.progress.getAll(),
       ]);
       setModule(m); setAllProgress(p);
-    } catch { router.push("/login"); }
-    finally { setLoading(false); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("401") || msg.includes("credentials") || msg.includes("Unauthorized")) {
+        localStorage.removeItem("aes_token");
+        router.push("/login");
+      }
+    } finally { setLoading(false); }
   }, [slug, router]);
 
   useEffect(() => { load(); }, [load]);

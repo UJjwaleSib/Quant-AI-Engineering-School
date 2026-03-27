@@ -19,8 +19,13 @@ export default function ModulesPage() {
     try {
       const [c, p] = await Promise.all([api.curriculum.getAll(), api.progress.getSummary()]);
       setCurriculum(c); setProgress(p);
-    } catch { router.push("/login"); }
-    finally { setLoading(false); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("401") || msg.includes("credentials") || msg.includes("Unauthorized")) {
+        localStorage.removeItem("aes_token");
+        router.push("/login");
+      }
+    } finally { setLoading(false); }
   }, [router]);
 
   useEffect(() => { load(); }, [load]);

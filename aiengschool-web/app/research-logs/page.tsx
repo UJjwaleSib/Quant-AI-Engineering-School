@@ -27,8 +27,13 @@ export default function ResearchLogsPage() {
     if (!token) { router.push("/login"); return; }
     try {
       setLogs(await api.researchLogs.getAll());
-    } catch { router.push("/login"); }
-    finally { setLoading(false); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("401") || msg.includes("credentials") || msg.includes("Unauthorized")) {
+        localStorage.removeItem("aes_token");
+        router.push("/login");
+      }
+    } finally { setLoading(false); }
   }, [router]);
 
   useEffect(() => { load(); }, [load]);

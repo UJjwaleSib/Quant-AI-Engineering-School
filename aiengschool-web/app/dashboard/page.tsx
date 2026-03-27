@@ -30,8 +30,14 @@ export default function DashboardPage() {
         api.curriculum.getAll(),
       ]);
       setUser(u); setProgress(p); setCurriculum(c);
-    } catch {
-      router.push("/login");
+    } catch (err) {
+      // Only redirect to login on auth errors, not on network/server errors
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("401") || msg.includes("credentials") || msg.includes("Unauthorized")) {
+        localStorage.removeItem("aes_token");
+        router.push("/login");
+      }
+      // Otherwise stay on dashboard — backend may just be slow/restarting
     } finally {
       setLoading(false);
     }
