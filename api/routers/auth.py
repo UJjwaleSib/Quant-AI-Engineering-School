@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from api.database import get_db, get_settings
@@ -10,16 +10,15 @@ from api.models import User
 from api.schemas import UserRegister, UserLogin, Token, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 
 def hash_password(pw: str) -> str:
-    return pwd_ctx.hash(pw)
+    return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_ctx.verify(plain, hashed)
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
 def create_access_token(data: dict) -> str:
