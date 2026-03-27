@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 10080
     database_url: str = "sqlite+aiosqlite:///./aiengschool.db"
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,http://localhost:3001"
 
 
 @lru_cache

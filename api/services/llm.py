@@ -1,8 +1,16 @@
 """LLM service using OpenAI for feedback, chat, and research log generation."""
 from __future__ import annotations
 import json
+import hashlib
 import openai
 from api.database import get_settings
+
+# ── In-memory feedback cache ──────────────────────────────────────────────────
+# Same code + same prompt = same feedback. Costs nothing on repeat submissions.
+_feedback_cache: dict[str, dict] = {}
+
+def _cache_key(*parts: str) -> str:
+    return hashlib.sha256("".join(parts).encode()).hexdigest()
 
 
 def _client() -> openai.OpenAI:
@@ -59,12 +67,18 @@ Provide feedback in this exact JSON format (no markdown, raw JSON only):
   "improvement": "One line of production-quality code improvement or financial insight"
 }}"""
 
+    key = _cache_key(exercise_prompt, user_code, execution_output)
+    if key in _feedback_cache:
+        return _feedback_cache[key]
+
     resp = client.chat.completions.create(
         model="gpt-4o-mini",
         max_tokens=600,
         messages=[{"role": "user", "content": prompt}],
     )
-    return _parse_json(resp.choices[0].message.content)
+    result = _parse_json(resp.choices[0].message.content)
+    _feedback_cache[key] = result
+    return result
 
 
 async def generate_research_log(
