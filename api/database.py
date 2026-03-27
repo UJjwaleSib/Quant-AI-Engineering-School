@@ -6,7 +6,7 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-    anthropic_api_key: str = ""
+    openai_api_key: str = ""
     secret_key: str = "dev-secret-key-change-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 10080

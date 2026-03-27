@@ -1,12 +1,13 @@
-"""LLM service using Anthropic Claude for feedback, chat, and research log generation."""
+"""LLM service using OpenAI for feedback, chat, and research log generation."""
 from __future__ import annotations
-import anthropic
+import json
+import openai
 from api.database import get_settings
 
 
-def _client() -> anthropic.Anthropic:
+def _client() -> openai.OpenAI:
     settings = get_settings()
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    return openai.OpenAI(api_key=settings.openai_api_key)
 
 
 SYSTEM_TUTOR = """You are an expert AI tutor specializing in quantitative finance and AI engineering.
@@ -14,6 +15,16 @@ You teach through the lens of a practitioner — every concept is tied to real-w
 You are concise, precise, and Socratic. You give specific, actionable feedback.
 Never just say "good job" — always push the learner to think deeper or improve.
 When reviewing code, focus on: correctness, edge cases, financial intuition, and production quality."""
+
+
+def _parse_json(raw: str) -> dict:
+    """Strip markdown fences and parse JSON."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    return json.loads(raw.strip())
 
 
 async def get_exercise_feedback(
@@ -48,19 +59,12 @@ Provide feedback in this exact JSON format (no markdown, raw JSON only):
   "improvement": "One line of production-quality code improvement or financial insight"
 }}"""
 
-    msg = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
         max_tokens=600,
         messages=[{"role": "user", "content": prompt}],
     )
-    import json
-    raw = msg.content[0].text.strip()
-    # Strip markdown code fences if present
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    return json.loads(raw.strip())
+    return _parse_json(resp.choices[0].message.content)
 
 
 async def generate_research_log(
@@ -97,18 +101,12 @@ Generate a research log in this exact JSON format (raw JSON, no markdown):
   "tags": ["tag1", "tag2", "tag3"]
 }}"""
 
-    msg = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
         max_tokens=500,
         messages=[{"role": "user", "content": prompt}],
     )
-    import json
-    raw = msg.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    return json.loads(raw.strip())
+    return _parse_json(resp.choices[0].message.content)
 
 
 async def chat_with_tutor(
@@ -125,10 +123,9 @@ async def chat_with_tutor(
     if user_code:
         system += f"\n\nUser's current code:\n```python\n{user_code}\n```"
 
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
+    resp = client.chat.completions.create(
+        model="gpt-4o",
         max_tokens=1000,
-        system=system,
-        messages=messages,
+        messages=[{"role": "system", "content": system}, *messages],
     )
-    return msg.content[0].text
+    return resp.choices[0].message.content
