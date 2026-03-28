@@ -28,6 +28,33 @@ CURRICULUM = {
                             "duration_min": 20,
                             "concept": "NumPy is the foundation of all numerical computing in Python. For quants, it provides vectorised operations on price arrays, log-return calculations, and fast matrix algebra for covariance matrices — all orders of magnitude faster than plain Python loops.",
                             "why_it_matters": "Every backtester, risk model, and portfolio optimiser ultimately boils down to array operations. Mastering NumPy means you can prototype a strategy in minutes and scale it to millions of data points without rewriting anything.",
+                            "explanation_steps": [
+                                {
+                                    "title": "What is a NumPy array?",
+                                    "body": "A NumPy array is like a Python list, but turbocharged for numbers. Every element is the same type (float64), stored in contiguous memory. That means operations run on the entire array at once — no Python loop needed. For quant work with millions of data points, this difference is enormous.",
+                                    "snippet": "import numpy as np\n\n# Python list — Python loops under the hood, slow for large data\nprices_list = [100.0, 101.5, 99.8, 102.3]\n\n# NumPy array — operates on all elements simultaneously\nprices = np.array([100.0, 101.5, 99.8, 102.3])\n\nprint(prices * 2)      # [200.  203.  199.6 204.6] — all at once, no loop\nprint(prices.mean())   # 100.9\nprint(prices.max())    # 102.3\nprint(prices.dtype)    # float64 — uniform type is what makes it fast"
+                                },
+                                {
+                                    "title": "Simulating daily returns",
+                                    "body": "Stock returns are approximately normally distributed day to day. `np.random.normal(mean, std, n)` draws n samples from a normal distribution — our model for daily price moves. We always call `np.random.seed()` first to make results reproducible. In research, reproducibility is non-negotiable.",
+                                    "snippet": "import numpy as np\n\nnp.random.seed(42)   # pin the sequence — same numbers every run\n\ndaily_returns = np.random.normal(\n    0.0005,  # mean: +0.05% per day (roughly 13% annualised)\n    0.015,   # std dev: 1.5% daily vol — typical for a mid-cap stock\n    252      # 252 trading days in a calendar year\n)\n\nprint(f'Array shape:  {daily_returns.shape}')   # (252,)\nprint(f'Mean return:  {daily_returns.mean():.4f}')\nprint(f'Std dev:      {daily_returns.std():.4f}')\nprint(f'First 3 days: {daily_returns[:3].round(4)}')"
+                                },
+                                {
+                                    "title": "Building a price series with cumprod",
+                                    "body": "Starting from price 100, each day's price equals the previous price times (1 + return). `np.cumprod(1 + returns)` computes this cumulative product in one line — no loop needed. This single operation is the backbone of almost every backtest you will ever write.",
+                                    "snippet": "import numpy as np\n\nnp.random.seed(42)\ndaily_returns = np.random.normal(0.0005, 0.015, 252)\n\n# np.cumprod builds: [1+r0,  (1+r0)(1+r1),  (1+r0)(1+r1)(1+r2), ...]\n# Multiply by 100 to start at price 100\nprices = 100 * np.cumprod(1 + daily_returns)\n\nprint(f'Day 1 price:   {prices[0]:.4f}')   # close to 100\nprint(f'Day 252 price: {prices[-1]:.4f}')  # end of year\nprint(f'Total return:  {(prices[-1] / 100 - 1):.2%}')"
+                                },
+                                {
+                                    "title": "Annualising return and volatility",
+                                    "body": "Daily stats need scaling to be meaningful. Return scales linearly — multiply by 252. Volatility scales by the square root of time — this comes from the mathematics of random walks (variance grows linearly, so std dev grows as sqrt). This square-root-of-time rule is one of the most important formulas in quant finance.",
+                                    "snippet": "import numpy as np\n\nnp.random.seed(42)\ndaily_returns = np.random.normal(0.0005, 0.015, 252)\n\n# Return: scales linearly with time\nann_return = daily_returns.mean() * 252\n\n# Volatility: scales by sqrt of time (NOT linearly)\nann_vol = daily_returns.std() * np.sqrt(252)  # <-- common mistake: using * 252\n\n# Sharpe ratio: reward per unit of risk\nsharpe = ann_return / ann_vol\n\nprint(f'Annualised return: {ann_return:.2%}')\nprint(f'Annualised vol:    {ann_vol:.2%}')\nprint(f'Sharpe ratio:      {sharpe:.2f}')"
+                                },
+                                {
+                                    "title": "Log returns vs simple returns",
+                                    "body": "Simple returns can't be added across time — they must be multiplied. Log returns solve this: log(P_t / P_{t-1}). They are additive (sum = total log return) and symmetric. Most importantly: a 10% gain followed by a 10% loss does NOT net to zero — log returns capture this correctly while simple returns mislead you. Most quant research uses log returns for multi-period analysis.",
+                                    "snippet": "import numpy as np\n\nnp.random.seed(42)\nprices = 100 * np.cumprod(1 + np.random.normal(0.0005, 0.015, 252))\n\n# prices[1:]  = [P_1, P_2, P_3, ...]  — today's prices\n# prices[:-1] = [P_0, P_1, P_2, ...]  — yesterday's prices\n# ratio       = P_t / P_{t-1}          — price relative\nlog_returns = np.log(prices[1:] / prices[:-1])\n\nprint(f'Log return mean:    {log_returns.mean():.6f}')\nprint(f'Log return std:     {log_returns.std():.6f}')\nprint()\nprint('For small returns, log ≈ simple.')\nprint('They diverge for large moves — log is always slightly smaller.')"
+                                },
+                            ],
                             "code_example": """import numpy as np
 
 # Simulate 252 daily returns (one trading year)
@@ -49,15 +76,103 @@ log_returns = np.log(prices[1:] / prices[:-1])
 print(f"\\nLog return mean   : {log_returns.mean():.6f}")
 print(f"Simple return mean: {daily_returns[1:].mean():.6f}")""",
                             "exercises": [
+                                # ── Tier 1: Comprehension (client-graded, no LLM) ──────────────
                                 {
-                                    "prompt": "Create a NumPy array of 500 random daily returns with mean=0.0003 and std=0.012. Compute: (1) annualised Sharpe ratio, (2) maximum drawdown as a percentage, (3) percentage of positive days. Print all three.",
-                                    "starter_code": "import numpy as np\nnp.random.seed(0)\n\n# Your code here\n",
-                                    "hints": ["Use np.cumprod(1 + returns) to build price series", "Max drawdown = (peak - trough) / peak — use np.maximum.accumulate for rolling peak"]
+                                    "type": "multiple_choice",
+                                    "prompt": "What does `np.cumprod(1 + returns)` produce when `returns` is an array of daily returns?",
+                                    "options": [
+                                        "The total sum of all returns",
+                                        "A price index showing compounded growth each day",
+                                        "The average return over the period",
+                                        "The running maximum return seen so far"
+                                    ],
+                                    "answer": "A price index showing compounded growth each day",
+                                    "starter_code": "",
+                                    "hints": ["Think: 'cumulative product' = multiply progressively. (1+r0), then (1+r0)(1+r1), then..."]
                                 },
                                 {
-                                    "prompt": "Given two assets with annual returns [0.12, 0.08] and a 2x2 covariance matrix [[0.04, 0.01],[0.01, 0.02]], compute portfolio variance for weights [0.6, 0.4] using NumPy matrix operations (w.T @ cov @ w).",
-                                    "starter_code": "import numpy as np\n\nreturns = np.array([0.12, 0.08])\ncov = np.array([[0.04, 0.01], [0.01, 0.02]])\nweights = np.array([0.60, 0.40])\n\n# Your code here\n",
-                                    "hints": ["Portfolio variance = w.T @ cov @ w", "Portfolio return = w @ returns"]
+                                    "type": "trace_output",
+                                    "prompt": "Trace this code by hand. What does it print? Work through the multiplication step by step.",
+                                    "code_to_trace": "import numpy as np\nreturns = np.array([0.10, -0.10, 0.10])\nprices = 100 * np.cumprod(1 + returns)\nprint(round(prices[-1], 2))",
+                                    "options": ["100.0", "108.9", "110.0", "99.0"],
+                                    "answer": "108.9",
+                                    "starter_code": "",
+                                    "hints": ["Step through: 100 × 1.10 = 110  →  110 × 0.90 = 99  →  99 × 1.10 = 108.9"]
+                                },
+                                {
+                                    "type": "fill_blank",
+                                    "prompt": "Complete the line. Annualising daily volatility uses the square-root-of-time rule, not linear scaling:",
+                                    "template": "ann_vol = daily_returns.std() * ____",
+                                    "answer": "np.sqrt(252)",
+                                    "starter_code": "",
+                                    "hints": ["Variance scales linearly, so std dev scales by the square root — sqrt(252) for daily→annual"]
+                                },
+                                # ── Tier 2: Guided Coding (LLM graded) ─────────────────────────
+                                {
+                                    "type": "fix_bug",
+                                    "prompt": "The annualised volatility on line 6 has a bug — it uses the wrong scaling and gives a wildly inflated answer. Fix it and print the corrected result.",
+                                    "starter_code": "import numpy as np\nnp.random.seed(42)\nreturns = np.random.normal(0.0005, 0.015, 252)\n\n# BUG: wrong scaling — fix this line\nann_vol = returns.std() * 252\n\nprint(f'Annualised vol: {ann_vol:.2%}')\n",
+                                    "hints": ["Volatility follows the square-root-of-time rule", "Replace * 252 with * np.sqrt(252)"]
+                                },
+                                {
+                                    "type": "complete_function",
+                                    "prompt": "Complete the `sharpe_ratio` function. Sharpe = (annualised_return − risk_free) / annualised_vol. The risk_free rate passed in is already annual (e.g. 0.04 = 4%).",
+                                    "starter_code": "import numpy as np\n\ndef sharpe_ratio(returns: np.ndarray, risk_free: float = 0.0) -> float:\n    \"\"\"\n    Annualised Sharpe ratio.\n    returns:   array of daily returns\n    risk_free: annual risk-free rate (default 0)\n    \"\"\"\n    # YOUR CODE HERE\n    pass\n\nnp.random.seed(0)\nr = np.random.normal(0.0006, 0.013, 252)\nprint(f'Sharpe (rf=0):    {sharpe_ratio(r):.2f}')\nprint(f'Sharpe (rf=0.04): {sharpe_ratio(r, 0.04):.2f}')\n",
+                                    "hints": [
+                                        "ann_return = returns.mean() * 252",
+                                        "ann_vol    = returns.std() * np.sqrt(252)",
+                                        "return (ann_return - risk_free) / ann_vol"
+                                    ]
+                                },
+                                {
+                                    "type": "adapt",
+                                    "prompt": "Adapt the code example to simulate 504 days (2 years) instead of 252. Then add two extra print lines: the worst single day return and the best single day return.",
+                                    "starter_code": "import numpy as np\n\nnp.random.seed(42)\n# 1. Change 252 to 504\ndaily_returns = np.random.normal(0.0005, 0.015, 252)\nprices = 100 * np.cumprod(1 + daily_returns)\n\nprint(f'Annualised return : {daily_returns.mean() * 252:.2%}')\nprint(f'Annualised vol    : {daily_returns.std() * np.sqrt(252):.2%}')\nprint(f'Sharpe ratio      : {(daily_returns.mean() / daily_returns.std()) * np.sqrt(252):.2f}')\n\n# 2. Add worst day and best day prints here\n",
+                                    "hints": [
+                                        "Change 252 → 504 in np.random.normal()",
+                                        "Worst day = daily_returns.min()",
+                                        "Best day  = daily_returns.max()"
+                                    ]
+                                },
+                                {
+                                    "type": "build_from_spec",
+                                    "prompt": "Write a `max_drawdown(prices)` function from scratch. Max drawdown = the largest peak-to-trough decline expressed as a negative percentage. Test it on 252 days of synthetic prices (seed=42, mean=0.0005, std=0.015).",
+                                    "starter_code": "import numpy as np\n\ndef max_drawdown(prices: np.ndarray) -> float:\n    \"\"\"\n    Returns max drawdown as a negative fraction.\n    e.g. -0.15 means the worst decline was 15%.\n    \"\"\"\n    # YOUR CODE HERE\n    pass\n\nnp.random.seed(42)\nprices = 100 * np.cumprod(1 + np.random.normal(0.0005, 0.015, 252))\nprint(f'Max drawdown: {max_drawdown(prices):.2%}')\n",
+                                    "hints": [
+                                        "Rolling peak: peak = np.maximum.accumulate(prices)",
+                                        "Drawdown each day: drawdown = (prices - peak) / peak",
+                                        "Max drawdown = drawdown.min()  — the most negative value"
+                                    ]
+                                },
+                                # ── Tier 3: Challenge (LLM graded) ─────────────────────────────
+                                {
+                                    "type": "debug_explain",
+                                    "prompt": "The log return calculation is wrong — it logs the raw prices instead of price ratios. Fix it AND add a comment explaining exactly what the original bug was and why your fix is correct.",
+                                    "starter_code": "import numpy as np\n\nnp.random.seed(42)\nprices = 100 * np.cumprod(1 + np.random.normal(0.0005, 0.015, 252))\n\n# BUG: this computes log of price levels, not log returns\nlog_returns = np.log(prices)  # wrong!\n\n# Fix the line above, then add a comment below explaining the bug:\n# ...\n\nprint(f'Mean: {log_returns.mean():.6f}')\nprint(f'Std:  {log_returns.std():.6f}')\n",
+                                    "hints": [
+                                        "Log returns = log(P_t / P_{t-1}), not log(P_t)",
+                                        "Use prices[1:] / prices[:-1] to get the ratio of consecutive prices"
+                                    ]
+                                },
+                                {
+                                    "type": "edge_case",
+                                    "prompt": "The `sharpe_ratio` function you wrote in Exercise 5 would crash with ZeroDivisionError if all returns are identical (zero volatility). Rewrite it to return 0.0 in that case. Prove it works with both a normal array and an all-zeros array.",
+                                    "starter_code": "import numpy as np\n\ndef sharpe_ratio(returns: np.ndarray, risk_free: float = 0.0) -> float:\n    \"\"\"Annualised Sharpe ratio, safe against zero volatility.\"\"\"\n    # YOUR CODE HERE\n    pass\n\n# Test 1 — normal returns\nnp.random.seed(0)\nr_normal = np.random.normal(0.0006, 0.013, 252)\nprint(f'Normal Sharpe:  {sharpe_ratio(r_normal):.2f}')\n\n# Test 2 — edge case: zero vol, zero return\nr_flat = np.zeros(252)\nprint(f'Flat Sharpe:    {sharpe_ratio(r_flat):.2f}')  # should print 0.00\n",
+                                    "hints": [
+                                        "Compute ann_vol first, then check: if ann_vol == 0: return 0.0",
+                                        "Only divide if vol is non-zero"
+                                    ]
+                                },
+                                {
+                                    "type": "mini_project",
+                                    "prompt": "Build a `risk_dashboard(prices)` function that prints a clean 6-line summary: (1) Annualised return, (2) Annualised volatility, (3) Sharpe ratio, (4) Maximum drawdown, (5) % of days with a positive return, (6) Best and worst single day. Test it on seed=42, mean=0.0005, std=0.015, 252 days. This brings together every concept from this lesson.",
+                                    "starter_code": "import numpy as np\n\ndef risk_dashboard(prices: np.ndarray) -> None:\n    \"\"\"\n    Print a risk summary for a price series.\n    Derive daily returns internally from prices.\n    \"\"\"\n    # YOUR CODE HERE\n    pass\n\nnp.random.seed(42)\nprices = 100 * np.cumprod(1 + np.random.normal(0.0005, 0.015, 252))\nrisk_dashboard(prices)\n",
+                                    "hints": [
+                                        "Get returns from prices: returns = np.diff(prices) / prices[:-1]",
+                                        "For max drawdown: peak = np.maximum.accumulate(prices); dd = (prices - peak) / peak; mdd = dd.min()",
+                                        "% positive days: (returns > 0).mean() * 100",
+                                        "Best/worst: returns.max() and returns.min()"
+                                    ]
                                 }
                             ]
                         },

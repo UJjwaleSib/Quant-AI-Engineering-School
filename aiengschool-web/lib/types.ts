@@ -9,19 +9,45 @@ export interface User {
   created_at: string;
 }
 
+export type ExerciseType =
+  | "multiple_choice"
+  | "trace_output"
+  | "fill_blank"
+  | "fix_bug"
+  | "complete_function"
+  | "adapt"
+  | "build_from_spec"
+  | "debug_explain"
+  | "edge_case"
+  | "mini_project";
+
+export interface Exercise {
+  // present on all exercises
+  type?: ExerciseType;
+  prompt: string;
+  starter_code: string;
+  hints: string[];
+  // Tier 1 — client-graded
+  options?: string[];
+  answer?: string;
+  code_to_trace?: string;
+  template?: string;
+}
+
+export interface ExplanationStep {
+  title: string;
+  body: string;
+  snippet?: string;
+}
+
 export interface Lesson {
   title: string;
   duration_min: number;
   concept: string;
   why_it_matters: string;
+  explanation_steps?: ExplanationStep[];
   code_example: string;
   exercises: Exercise[];
-}
-
-export interface Exercise {
-  prompt: string;
-  starter_code: string;
-  hints: string[];
 }
 
 export interface Module {
